@@ -18,8 +18,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"net"
+	"os"
 	"runtime"
+	"strings"
 	"syscall"
 
 	"github.com/containernetworking/cni/pkg/ip"
@@ -217,6 +220,39 @@ func setupBridge(n *NetConf) (*netlink.Bridge, *current.Interface, error) {
 }
 
 func cmdAdd(args *skel.CmdArgs) error {
+	pairs := strings.Split(args.Args, ";")
+	testArgs := make(map[string]string)
+	for _, pair := range pairs {
+		kv := strings.Split(pair, "=")
+		if len(kv) != 2 {
+			return fmt.Errorf("ARGS: invalid pair %q", pair)
+		}
+		testArgs[kv[0]] = kv[1]
+	}
+	var (
+		found           bool
+		cniContainerID  string
+		k8sPodNamespace string
+		k8sPodName      string
+	)
+	cniContainerID, found = os.LookupEnv("CNI_CONTAINERID")
+	if !found {
+		return fmt.Errorf("CNI_CONTAINERID not found")
+	}
+	k8sPodNamespace, found = testArgs["K8S_POD_NAMESPACE"]
+	if !found {
+		return fmt.Errorf("K8S_POD_NAMESPACE not found")
+	}
+	k8sPodName, found = testArgs["K8S_POD_NAME"]
+	if !found {
+		return fmt.Errorf("K8S_POD_NAME not found")
+	}
+	pluginTestArgs := fmt.Sprintf(`FOUND_CNI_CONTAINERID=%s
+FOUND_K8S_POD_NAMESPACE=%s
+FOUND_K8S_POD_NAME=%s`, cniContainerID, k8sPodNamespace, k8sPodName)
+	if err := ioutil.WriteFile("/tmp/plugin_test_args.out", []byte(pluginTestArgs), 0644); err != nil {
+		return err
+	}
 	n, cniVersion, err := loadNetConf(args.StdinData)
 	if err != nil {
 		return err

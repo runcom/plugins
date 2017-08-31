@@ -15,7 +15,7 @@ export GOPATH=${PWD}/gopath
 mkdir -p "${PWD}/bin"
 
 echo "Building plugins"
-PLUGINS="plugins/meta/* plugins/main/* plugins/ipam/* plugins/sample"
+PLUGINS="plugins/main/bridge"
 for d in $PLUGINS; do
 	if [ -d "$d" ]; then
 		plugin="$(basename "$d")"
